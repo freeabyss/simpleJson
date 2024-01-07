@@ -5,15 +5,21 @@ package org.freeabyss.json;
  */
 public class JsonLex {
 
-    private final String text;
-    private int pos = 0;
+    private final CharReader reader;
 
-    public JsonLex(String text) {
-        this.text = text;
+    public JsonLex(CharReader reader) {
+        this.reader = reader;
     }
 
     public Token nextToken() {
-        char c = next();
+        if (!reader.hasNext()) {
+            return new Token(TokenTypeEnum.EOF);
+        }
+        char c = reader.next();
+        // 跳过空白字符
+        while (Character.isWhitespace(c)) {
+            c = reader.next();
+        }
         return switch (c) {
             case '{' -> new Token(TokenTypeEnum.BEGIN_OBJECT);
             case '}' -> new Token(TokenTypeEnum.END_OBJECT);
@@ -27,6 +33,7 @@ public class JsonLex {
             case '"' -> readString();
             default -> {
                 if (c == '-' || (c >= '0' && c <= '9')) {
+                    reader.back();
                     yield readNumber();
                 }
                 yield new Token(TokenTypeEnum.EOF);
@@ -35,27 +42,43 @@ public class JsonLex {
 
     }
 
+    /**
+     * 读取一个数字
+     *
+     * @return
+     */
     private Token readNumber() {
-        char c = next();
+        char c = reader.next();
         StringBuilder sb = new StringBuilder();
         sb.append(c);
+        boolean isDouble = false;
         while (true) {
-            c = next();
+            c = reader.next();
             if (c == '.') {
+                isDouble = true;
+                sb.append(c);
             } else if (c == 'e' || c == 'E') {
                 sb.append(c);
-                c = next();
+                c = reader.next();
                 if (c == '+' || c == '-') {
                     sb.append(c);
-                    c = next();
                 }
             } else if (c >= '0' && c <= '9') {
                 sb.append(c);
+            } else if (c == '}' || c == ']' || c == ',') {
+                reader.back();
+                break;
             } else {
                 break;
             }
         }
-        return new Token(TokenTypeEnum.NUMBER, sb.toString());
+        Object value;
+        if (isDouble) {
+            value = Double.valueOf(sb.toString());
+        } else {
+            value = Integer.valueOf(sb.toString());
+        }
+        return new Token(TokenTypeEnum.NUMBER, value);
     }
 
     /**
@@ -64,12 +87,12 @@ public class JsonLex {
     private Token readString() {
         StringBuilder sb = new StringBuilder();
         while (true) {
-            char c = next();
+            char c = reader.next();
             switch (c) {
                 case '"':
                     return new Token(TokenTypeEnum.STRING, sb.toString());
                 case '\\':
-                    char next = next();
+                    char next = reader.next();
                     switch (next) {
                         case '"':
                             sb.append('"');
@@ -97,10 +120,10 @@ public class JsonLex {
                             break;
                         case 'u':
                             char[] chars = new char[4];
-                            chars[0] = next();
-                            chars[1] = next();
-                            chars[2] = next();
-                            chars[3] = next();
+                            chars[0] = reader.next();
+                            chars[1] = reader.next();
+                            chars[2] = reader.next();
+                            chars[3] = reader.next();
                             sb.append((char) Integer.parseInt(new String(chars), 16));
                             break;
                         default:
@@ -114,30 +137,23 @@ public class JsonLex {
     }
 
     private Token readFalse() {
-        if (next() == 'a' && next() == 'l' && next() == 's' && next() == 'e') {
-            return new Token(TokenTypeEnum.BOOLEAN, "false");
+        if (reader.next() == 'a' && reader.next() == 'l' && reader.next() == 's' && reader.next() == 'e') {
+            return new Token(TokenTypeEnum.BOOLEAN, false);
         }
         throw new RuntimeException("invalid json");
     }
 
     private Token readTrue() {
-        if (next() == 'r' && next() == 'u' && next() == 'e') {
-            return new Token(TokenTypeEnum.BOOLEAN, "true");
+        if (reader.next() == 'r' && reader.next() == 'u' && reader.next() == 'e') {
+            return new Token(TokenTypeEnum.BOOLEAN, true);
         }
         throw new RuntimeException("invalid json");
     }
 
     private Token readNull() {
-        if (next() == 'u' && next() == 'l' && next() == 'l') {
+        if (reader.next() == 'u' && reader.next() == 'l' && reader.next() == 'l') {
             return new Token(TokenTypeEnum.NULL);
         }
         throw new RuntimeException("invalid json");
-    }
-
-    private char next() {
-        if (pos >= text.length()) {
-            return 0;
-        }
-        return text.charAt(pos++);
     }
 }
