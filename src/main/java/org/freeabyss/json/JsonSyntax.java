@@ -29,14 +29,14 @@ public class JsonSyntax {
 
     }
 
-    public Map parseObject() {
+    public DefaultJsonObject parseObject() {
         Token token;
         Map result = new HashMap();
         while (true) {
             token = jsonLex.nextToken();
             switch (token.getType()) {
-                case END_OBJECT,EOF:
-                    return result;
+                case END_OBJECT, EOF:
+                    return new DefaultJsonObject(result);
                 case STRING:
                     String key = (String) token.getValue();
                     token = jsonLex.nextToken();

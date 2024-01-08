@@ -1,7 +1,6 @@
 package org.freeabyss.json;
 
 import java.util.List;
-import java.util.Map;
 
 public class Json {
 
@@ -13,7 +12,7 @@ public class Json {
         return null;
     }
 
-    public Map parseMap(String json) {
+    public DefaultJsonObject parseJsonObject(String json) {
         return new JsonSyntax(new JsonLex(new CharReader(json))).parseObject();
     }
 
